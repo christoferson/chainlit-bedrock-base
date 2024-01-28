@@ -65,7 +65,8 @@ async def setup_agent(settings):
     llm = Bedrock(
         region_name = AWS_REGION,
         model_id = settings["Model"],
-        model_kwargs = {"temperature": settings["Temperature"]}
+        model_kwargs = {"temperature": settings["Temperature"]},
+        streaming = True, #Streaming must be set to True for async operations.
     )
 
     provider = bedrock_model_id.split(".")[0]
@@ -101,7 +102,7 @@ async def setup_agent(settings):
             human_prefix=human_prefix,
             ai_prefix=ai_prefix
         ),
-        verbose=True
+        verbose=True,
     )
     # Set ConversationChain to the user session
     cl.user_session.set("llm_chain", conversation)
@@ -113,7 +114,7 @@ async def main(message: cl.Message):
 
     res = await conversation.ainvoke(
         message.content, 
-        callbacks=[cl.AsyncLangchainCallbackHandler()]
+        callbacks=[cl.AsyncLangchainCallbackHandler()],
     )
     
     await cl.Message(content=res["response"]).send()
