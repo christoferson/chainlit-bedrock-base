@@ -10,12 +10,12 @@ from prompt_template import get_template
 
 AWS_REGION = os.environ["AWS_REGION"]
 
-@cl.author_rename
-def rename(orig_author: str):
-    mapping = {
-        "ConversationChain": bedrock_model_id
-    }
-    return mapping.get(orig_author, orig_author)
+#@cl.author_rename
+#def rename(orig_author: str):
+#    mapping = {
+#        "ConversationChain": bedrock_model_id
+#    }
+#    return mapping.get(orig_author, orig_author)
 
 @cl.on_chat_start
 async def main():
@@ -59,14 +59,13 @@ async def main():
 
 @cl.on_settings_update
 async def setup_agent(settings):
-    global bedrock_model_id
+    #global bedrock_model_id
     bedrock_model_id = settings["Model"]
     
-    # Instantiate the chain for user session
     llm = Bedrock(
-        region_name=AWS_REGION,
-        model_id=bedrock_model_id,
-        model_kwargs={"temperature": settings["Temperature"]}
+        region_name = AWS_REGION,
+        model_id = settings["Model"],
+        model_kwargs = {"temperature": settings["Temperature"]}
     )
 
     provider = bedrock_model_id.split(".")[0]
@@ -112,7 +111,7 @@ async def main(message: cl.Message):
     # Get ConversationChain from the user session
     conversation = cl.user_session.get("llm_chain") 
 
-    res = await conversation.acall(
+    res = await conversation.ainvoke(
         message.content, 
         callbacks=[cl.AsyncLangchainCallbackHandler()]
     )
