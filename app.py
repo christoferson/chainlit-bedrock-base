@@ -106,7 +106,8 @@ async def setup_agent(settings):
         llm.model_kwargs["max_tokens_to_sample"] = MAX_TOKEN_SIZE
         human_prefix="H"
         ai_prefix="A"
-    elif provider == "ai21":
+    elif provider == "ai21": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jurassic2.html
+        llm.model_kwargs["topP"] = TOP_P
         llm.model_kwargs["maxTokens"] = MAX_TOKEN_SIZE
         llm.streaming = False
     elif provider == "cohere": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
@@ -117,10 +118,12 @@ async def setup_agent(settings):
     elif provider == "amazon": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-text.html
         llm.model_kwargs["topP"] = TOP_P
         llm.model_kwargs["maxTokenCount"] = MAX_TOKEN_SIZE
-    #elif provider == "meta":
+    elif provider == "meta": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-meta.html
+        llm.model_kwargs["top_p"] = TOP_P
+        llm.model_kwargs["max_gen_len"] = MAX_TOKEN_SIZE
     else:
         print(f"Unsupported Provider: {provider}")
-        raise ValueError(f"Unsupported Provider: {provider}")
+        raise ValueError(f"Error, Unsupported Provider: {provider}")
 
     prompt = PromptTemplate(
         template=get_template(provider),
@@ -138,15 +141,26 @@ async def setup_agent(settings):
     )
     # Set ConversationChain to the user session
     cl.user_session.set("llm_chain", conversation)
+    cl.user_session.set("llm_streaming", llm.streaming)
+    
 
 @cl.on_message
 async def main(message: cl.Message):
     # Get ConversationChain from the user session
     conversation = cl.user_session.get("llm_chain") 
+    llm_streaming = cl.user_session.get("llm_streaming") 
 
-    res = await conversation.ainvoke(
-        message.content, 
-        callbacks=[cl.AsyncLangchainCallbackHandler()],
-    )
-    
-    await cl.Message(content=res["response"]).send()
+    if llm_streaming:
+        res = await conversation.ainvoke(
+            message.content, 
+            callbacks=[cl.AsyncLangchainCallbackHandler()],
+        )
+        #print(res)
+        await cl.Message(content=res["response"]).send()
+    else:
+        res = conversation.invoke(
+            message.content, 
+            callbacks=[cl.LangchainCallbackHandler()],
+        )
+        #print(res)
+        await cl.Message(content=res["response"]).send()
