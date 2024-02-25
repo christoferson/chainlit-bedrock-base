@@ -24,4 +24,6 @@ Basic example that directly invokes the Bedrock Foundational Model
 
 [chainlit-bedrock](https://github.com/christoferson/chainlit-bedrock)
 
+[chainlit-bedrock-lc](https://github.com/christoferson/chainlit-bedrock-lc)
+
 

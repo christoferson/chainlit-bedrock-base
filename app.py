@@ -46,7 +46,23 @@ async def main():
                 step=0.1,
             ),
             Slider(
-                id="MAX_TOKEN_SIZE",
+                id = "TopP",
+                label = "Top P",
+                initial = 1,
+                min = 0,
+                max = 1,
+                step = 0.1,
+            ),
+            Slider(
+                id = "TopK",
+                label = "Top K",
+                initial = 250,
+                min = 0,
+                max = 500,
+                step = 5,
+            ),
+            Slider(
+                id="MaxTokenCount",
                 label="Max Token Size",
                 initial=1024,
                 min=256,
@@ -65,7 +81,12 @@ async def setup_agent(settings):
     llm = Bedrock(
         region_name = AWS_REGION,
         model_id = settings["Model"],
-        model_kwargs = {"temperature": settings["Temperature"]},
+        model_kwargs = {
+            "temperature": settings["Temperature"],
+            #"top_p": settings["TopP"],
+            #"top_k": int(settings["TopK"]),
+            #"max_tokens_to_sample": int(settings["MaxTokenCount"]),
+        },
         streaming = True, #Streaming must be set to True for async operations.
     )
 
@@ -74,21 +95,32 @@ async def setup_agent(settings):
     human_prefix="Human"
     ai_prefix="AI"
 
-    MAX_TOKEN_SIZE = int(settings["MAX_TOKEN_SIZE"])
+    TOP_P = float(settings["TopP"])
+    TOP_K = int(settings["TopK"])
+    MAX_TOKEN_SIZE = int(settings["MaxTokenCount"])
     
     # Model specific adjustments
-    if provider == "anthropic":
+    if provider == "anthropic": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-claude.html
+        llm.model_kwargs["top_p"] = TOP_P
+        llm.model_kwargs["top_k"] = TOP_K
         llm.model_kwargs["max_tokens_to_sample"] = MAX_TOKEN_SIZE
         human_prefix="H"
         ai_prefix="A"
     elif provider == "ai21":
         llm.model_kwargs["maxTokens"] = MAX_TOKEN_SIZE
-    elif provider == "cohere":
+        llm.streaming = False
+    elif provider == "cohere": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
+        llm.model_kwargs["p"] = TOP_P
+        llm.model_kwargs["k"] = TOP_K
         llm.model_kwargs["max_tokens"] = MAX_TOKEN_SIZE    
-    elif provider == "amazon":
+        llm.model_kwargs["stream"] = True
+    elif provider == "amazon": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-text.html
+        llm.model_kwargs["topP"] = TOP_P
         llm.model_kwargs["maxTokenCount"] = MAX_TOKEN_SIZE
+    #elif provider == "meta":
     else:
         print(f"Unsupported Provider: {provider}")
+        raise ValueError(f"Unsupported Provider: {provider}")
 
     prompt = PromptTemplate(
         template=get_template(provider),
