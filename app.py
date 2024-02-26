@@ -7,9 +7,22 @@ from langchain.llms.bedrock import Bedrock
 import chainlit as cl
 from chainlit.input_widget import Select, Slider
 from prompt_template import get_template
+from typing import Optional
 
 AWS_REGION = os.environ["AWS_REGION"]
+AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
+AUTH_ADMIN_PWD = os.environ["AUTH_ADMIN_PWD"]
 
+
+@cl.password_auth_callback
+def auth_callback(username: str, password: str) -> Optional[cl.User]:
+  # Fetch the user matching username from your database
+  # and compare the hashed password with the value stored in the database
+  if (username, password) == (AUTH_ADMIN_USR, AUTH_ADMIN_PWD):
+    return cl.User(identifier=AUTH_ADMIN_USR, metadata={"role": "admin", "provider": "credentials"})
+  else:
+    return None
+  
 #@cl.author_rename
 #def rename(orig_author: str):
 #    mapping = {

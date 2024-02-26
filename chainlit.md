@@ -1,8 +1,9 @@
 # Chat powered by Chainlit + Amazon Bedrock 🚀🤖
 
 ## About
-Sample chat application to showcase Amazon Bedrock, using Chainlit and LangChain.  
+Chat application to showcase Amazon Bedrock, using Chainlit and LangChain.  
 Settings are available to select from multiple models as well as set inference parameters.
+Version 1.1 Feb 24 2024
 
 ### Models
 Default: `anthropic.claude-v2`
@@ -16,3 +17,4 @@ Default: `anthropic.claude-v2`
 **Temperature:** Default: 0.3  
 
 **Max Token Size:** Default: 1024  
+

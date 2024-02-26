@@ -11,6 +11,17 @@ pip install --upgrade chainlit
 
 pip install --upgrade python-dotenv
 
+##### Generate requirements.txt
+
+pipreqs --encoding utf-8 "./" --force
+
+##### Generate JWT Secret for Authentication
+
+chainlit create-secret
+
+Copy the following secret into your .env file. Once it is set, changing it will logout all users with active sessions.
+CHAINLIT_AUTH_SECRET=xxx
+
 ##### Launch Locally
 
 chainlit run app.py -h
