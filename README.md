@@ -30,11 +30,19 @@ chainlit run app.py -h
 
 Basic example that directly invokes the Bedrock Foundational Model
 
-[chainlit-bedrock-base](https://github.com/christoferson/chainlit-bedrock-base)  LLM
+Boto3
 
-[chainlit-bedrock-kb](https://github.com/christoferson/chainlit-bedrock-kb)      LLM+KB
+[chainlit-bedrock-base](https://github.com/christoferson/chainlit-bedrock-base)
 
-[chainlit-bedrock-kb-lc](https://github.com/christoferson/chainlit-bedrock-kb-lc)
+[chainlit-bedrock-llm](https://github.com/christoferson/chainlit-bedrock-llm)    LLM
+
+[chainlit-bedrock-llm-kb](https://github.com/christoferson/chainlit-bedrock-llm-kb) LLM+KB
+
+Langchain
+
+[chainlit-bedrock-kb](https://github.com/christoferson/chainlit-bedrock-kb)      LLM+KB  LLM+KB+LC(ConversationalRetrievalChain)
+
+[chainlit-bedrock-kb-lc](https://github.com/christoferson/chainlit-bedrock-kb-lc) LLL+KB+LC(RetrievalQA)
 
 [chainlit-bedrock](https://github.com/christoferson/chainlit-bedrock)
 
