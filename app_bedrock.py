@@ -3,6 +3,56 @@ import json
 
 class BedrockModelStrategy():
 
+    def create_prompt(self, application_options: dict, context_info: str, query: str) -> str:
+
+        prompt = ""
+        if "" == context_info:
+            prompt = self._create_prompt(application_options, query)
+        else:
+            prompt = self._create_prompt_with_context(application_options, context_info, query)
+
+        return prompt
+
+    def _create_prompt(self, application_options: dict, query: str) -> str:
+
+        option_terse = application_options.get("option_terse")
+
+        terse_instructions = ""
+        if option_terse == True:
+            terse_instructions = "Unless otherwise instructed, omit any preamble and provide terse and concise one liner answer."
+
+        prompt = f"""Please answer the question while following instructions provided. 
+        {terse_instructions}
+        \n\nHuman: {query}
+
+        Assistant:
+        """
+
+        return prompt
+
+    def _create_prompt_with_context(self, application_options: dict, context_info: str, query: str) -> str:
+
+        option_terse = application_options.get("option_terse")
+        option_strict = application_options.get("option_strict")
+
+        strict_instructions = ""
+        if option_strict == True:
+            strict_instructions = "Only answer if you know the answer with certainty and is evident from the provided context. Otherwise, just say that you don't know and don't make up an answer."
+
+        terse_instructions = ""
+        if option_terse == True:
+            terse_instructions = "Unless otherwise instructed, omit any preamble and provide terse and concise one liner answer."
+
+        prompt = f"""Please answer the question with the provided context while following instructions provided. 
+        {terse_instructions} {strict_instructions}
+        Here is the context: {context_info}
+        \n\nHuman: {query}
+
+        Assistant:
+        """
+
+        return prompt
+
     def create_request(self, inference_parameters: dict, prompt : str) -> dict:
         pass
 

@@ -2,7 +2,6 @@ import os
 import boto3
 import chainlit as cl
 from chainlit.input_widget import Select, Slider
-from prompt_template import get_template
 from typing import Optional
 import json
 import traceback
@@ -13,6 +12,8 @@ AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
 AUTH_ADMIN_PWD = os.environ["AUTH_ADMIN_PWD"]
 
+bedrock = boto3.client("bedrock", region_name=AWS_REGION)
+bedrock_runtime = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 
 @cl.password_auth_callback
 def auth_callback(username: str, password: str) -> Optional[cl.User]:
@@ -30,9 +31,32 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
 #    }
 #    return mapping.get(orig_author, orig_author)
 
+@cl.set_chat_profiles
+async def chat_profile():
+    #if current_user.metadata["role"] != "ADMIN":
+    #    return None
+    return [
+        cl.ChatProfile(
+            name="GPT-3.5",
+            markdown_description="The underlying LLM model is **GPT-3.5**.",
+            icon="https://picsum.photos/200",
+        ),
+        cl.ChatProfile(
+            name="GPT-4",
+            markdown_description="The underlying LLM model is **GPT-4**.",
+            icon="https://picsum.photos/250",
+        ),
+    ]
+
 @cl.on_chat_start
 async def main():
-    bedrock = boto3.client("bedrock", region_name=AWS_REGION)
+
+    chat_profile = cl.user_session.get("chat_profile")
+    await cl.Message(
+        content=f"starting chat using the {chat_profile} chat profile"
+    ).send()
+
+    
     
     response = bedrock.list_foundation_models(
         byOutputModality="TEXT"
@@ -97,6 +121,11 @@ async def setup_agent(settings):
 
     bedrock_model_id = settings["Model"]
 
+    application_options = dict (
+        option_terse = False,
+        option_strict = False
+    )
+
     inference_parameters = dict (
         temperature = settings["Temperature"],
         top_p = float(settings["TopP"]),
@@ -125,16 +154,10 @@ async def setup_agent(settings):
     else:
         print(f"Unsupported Provider: {provider}")
         raise ValueError(f"Error, Unsupported Provider: {provider}")
-
-    prompt_template = get_template(provider)
-    if bedrock_model_id.startswith("anthropic.claude-3"):
-        prompt_template = '{input}'
-
-    cl.user_session.set("prompt_template", prompt_template)
     
-    bedrock_runtime = boto3.client('bedrock-runtime', region_name=AWS_REGION)
-    cl.user_session.set("bedrock_runtime", bedrock_runtime)
+    
     cl.user_session.set("bedrock_model_id", bedrock_model_id)
+    cl.user_session.set("application_options", application_options)
     cl.user_session.set("inference_parameters", inference_parameters)
     cl.user_session.set("bedrock_model_strategy", model_strategy)
     
@@ -142,15 +165,17 @@ async def setup_agent(settings):
 @cl.on_message
 async def main(message: cl.Message):
 
-    prompt_template = cl.user_session.get("prompt_template") 
-    bedrock_runtime = cl.user_session.get("bedrock_runtime")
     bedrock_model_id = cl.user_session.get("bedrock_model_id")
     inference_parameters = cl.user_session.get("inference_parameters")
+    application_options = cl.user_session.get("application_options")
     bedrock_model_strategy : app_bedrock.BedrockModelStrategy = cl.user_session.get("bedrock_model_strategy")
 
-    prompt = prompt_template.replace("{input}", message.content)
-    prompt = prompt.replace("{history}", "")
-    #print(prompt)
+    #create_prompt(self, application_options: dict, context_info: str, query: str) -> str:
+    prompt_template = bedrock_model_strategy.create_prompt(application_options, "", message.content)
+    #prompt = prompt_template.replace("{input}", message.content)
+    #prompt = prompt.replace("{history}", "")
+    prompt = prompt_template
+    print(prompt)
     #print(inference_parameters)
     request = bedrock_model_strategy.create_request(inference_parameters, prompt)
     #print(request)
