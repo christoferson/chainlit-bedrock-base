@@ -23,13 +23,7 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
     return cl.User(identifier=AUTH_ADMIN_USR, metadata={"role": "admin", "provider": "credentials"})
   else:
     return None
-  
-#@cl.author_rename
-#def rename(orig_author: str):
-#    mapping = {
-#        "ConversationChain": bedrock_model_id
-#    }
-#    return mapping.get(orig_author, orig_author)
+
 
 @cl.set_chat_profiles
 async def chat_profile():
@@ -37,12 +31,17 @@ async def chat_profile():
     #    return None
     return [
         cl.ChatProfile(
-            name="GPT-3.5",
+            name="CHAT",
             markdown_description="The underlying LLM model is **GPT-3.5**.",
             icon="https://picsum.photos/200",
         ),
         cl.ChatProfile(
-            name="GPT-4",
+            name="TRANSLATE",
+            markdown_description="The underlying LLM model is **GPT-3.5**.",
+            icon="https://picsum.photos/200",
+        ),
+        cl.ChatProfile(
+            name="DATA",
             markdown_description="The underlying LLM model is **GPT-4**.",
             icon="https://picsum.photos/250",
         ),
@@ -51,32 +50,20 @@ async def chat_profile():
 @cl.on_chat_start
 async def main():
 
+    user = cl.user_session.get("user")
     chat_profile = cl.user_session.get("chat_profile")
     await cl.Message(
-        content=f"starting chat using the {chat_profile} chat profile"
+        content=f"starting chat with {user.identifier} using the {chat_profile} chat profile"
     ).send()
 
     
-    
-    response = bedrock.list_foundation_models(
-        byOutputModality="TEXT"
-    )
-    
-    model_ids = []
-    for item in response["modelSummaries"]:
-        model_ids.append(item['modelId'])
-        print(item['modelId'])
-    
+    model_ids = ["anthropic.claude-3-sonnet-20240229-v1:0"]
     settings = await cl.ChatSettings(
         [
             Select(
                 id="Model",
                 label="Amazon Bedrock - Model",
                 values=model_ids,
-                #initial_index=model_ids.index("ai21.j2-mid"), 
-                #initial_index=model_ids.index("meta.llama2-13b-chat-v1"), 
-                #initial_index=model_ids.index("amazon.titan-text-express-v1"), 
-                #initial_index=model_ids.index("anthropic.claude-v2"),
                 initial_index=model_ids.index("anthropic.claude-3-sonnet-20240229-v1:0"),
                 
             ),
@@ -135,26 +122,7 @@ async def setup_agent(settings):
         stop_sequences =  []
     )
 
-    model_strategy = app_bedrock.BedrockModelStrategyFactory.create(bedrock_model_id) #BedrockModelStrategy()
-
-    provider = bedrock_model_id.split(".")[0]
-
-    if provider == "anthropic": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-claude.html
-        pass #model_strategy = AnthropicBedrockModelStrategy()
-    elif provider == "ai21": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-jurassic2.html
-        pass #model_strategy = AI21BedrockModelStrategy()
-    elif provider == "cohere": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere-command.html
-        pass #model_strategy = CohereBedrockModelStrategy()
-    elif provider == "amazon": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-text.html
-        pass #model_strategy = TitanBedrockModelStrategy()
-    elif provider == "meta": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-meta.html
-        pass #model_strategy = MetaBedrockModelStrategy()
-    elif provider == "mistral": # https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-mistral.html
-        pass #model_strategy = MistralBedrockModelStrategy()
-    else:
-        print(f"Unsupported Provider: {provider}")
-        raise ValueError(f"Error, Unsupported Provider: {provider}")
-    
+    model_strategy = app_bedrock.BedrockModelStrategyFactory.create(bedrock_model_id) #BedrockModelStrategy()    
     
     cl.user_session.set("bedrock_model_id", bedrock_model_id)
     cl.user_session.set("application_options", application_options)
@@ -202,234 +170,3 @@ async def main(message: cl.Message):
 
     print("End")
 
-
-class BedrockModelStrategy():
-
-    def create_request(self, inference_parameters: dict, prompt : str) -> dict:
-        pass
-
-    def send_request(self, request:dict, bedrock_runtime, bedrock_model_id:str):
-        response = bedrock_runtime.invoke_model_with_response_stream(modelId = bedrock_model_id, body = json.dumps(request))
-        return response
-
-    async def process_response_stream(self, stream, msg : cl.Message):
-        print("unknown")
-        await msg.stream_token("unknown")
-
-class AnthropicBedrockModelStrategy(BedrockModelStrategy):
-
-    def create_request(self, inference_parameters: dict, prompt : str) -> dict:
-        request = {
-            "prompt": prompt,
-            "temperature": inference_parameters.get("temperature"),
-            "top_p": inference_parameters.get("top_p"), #0.5,
-            "top_k": inference_parameters.get("top_k"), #300,
-            "max_tokens_to_sample": inference_parameters.get("max_tokens_to_sample"), #2048,
-            #"stop_sequences": []
-        }
-        return request
-
-    async def process_response_stream(self, stream, msg : cl.Message):
-        if stream:
-            for event in stream:
-                chunk = event.get("chunk")
-                if chunk:
-                    object = json.loads(chunk.get("bytes").decode())
-                    #print(object)
-                    if "completion" in object:
-                        completion = object["completion"]
-                        #print(completion)
-                        await msg.stream_token(completion)
-                    stop_reason = None
-                    if "stop_reason" in object:
-                        stop_reason = object["stop_reason"]
-                    
-                    if stop_reason == 'stop_sequence':
-                        invocation_metrics = object["amazon-bedrock-invocationMetrics"]
-                        if invocation_metrics:
-                            input_token_count = invocation_metrics["inputTokenCount"]
-                            output_token_count = invocation_metrics["outputTokenCount"]
-                            latency = invocation_metrics["invocationLatency"]
-                            lag = invocation_metrics["firstByteLatency"]
-                            stats = f"token.in={input_token_count} token.out={output_token_count} latency={latency} lag={lag}"
-                            await msg.stream_token(f"\n\n{stats}")
-
-class CohereBedrockModelStrategy(BedrockModelStrategy):
-
-    def create_request(self, inference_parameters: dict, prompt : str) -> dict:
-        request = {
-            "prompt": prompt,
-            "temperature": inference_parameters.get("temperature"),
-            "top_p": inference_parameters.get("top_p"), #0.5,
-            "top_k": inference_parameters.get("top_k"), #300,
-            "max_tokens_to_sample": inference_parameters.get("max_tokens_to_sample"), #2048,
-            #"stop_sequences": []
-        }
-        return request
-
-    async def process_response_stream(self, stream, msg : cl.Message):
-        #print("cohere")
-        #await msg.stream_token("Cohere")
-        if stream:
-            for event in stream:
-                chunk = event.get("chunk")
-                if chunk:
-                    object = json.loads(chunk.get("bytes").decode())
-                    if "generations" in object:
-                        generations = object["generations"]
-                        for generation in generations:
-                            print(generation)
-                            await msg.stream_token(generation["text"])
-                            if "finish_reason" in generation:
-                                finish_reason = generation["finish_reason"]
-                                await msg.stream_token(f"\nfinish_reason={finish_reason}")
-
-class TitanBedrockModelStrategy(BedrockModelStrategy):
-
-    def create_request(self, inference_parameters: dict, prompt : str) -> dict:
-        request = {
-            "inputText": prompt,
-            "textGenerationConfig": {
-                "temperature": inference_parameters.get("temperature"),
-                "topP": inference_parameters.get("top_p"), #0.5,
-                #"top_k": inference_parameters.get("top_k"), #300,
-                "maxTokenCount": inference_parameters.get("max_tokens_to_sample"), #2048,
-                #"stop_sequences": []
-            }
-        }
-        return request
-
-    async def process_response_stream(self, stream, msg : cl.Message):
-        #print("titan")
-        #await msg.stream_token("Titan")
-        if stream:
-            for event in stream:
-                chunk = event.get("chunk")
-                if chunk:
-                    object = json.loads(chunk.get("bytes").decode())
-                    #print(object)
-                    if "outputText" in object:
-                        completion = object["outputText"]
-                        await msg.stream_token(completion)
-                    if "completionReason" in object:
-                        finish_reason = object["completionReason"]
-                        if finish_reason:
-                            if "amazon-bedrock-invocationMetrics" in object:
-                                invocation_metrics = object["amazon-bedrock-invocationMetrics"]
-                                if invocation_metrics:
-                                    input_token_count = invocation_metrics["inputTokenCount"]
-                                    output_token_count = invocation_metrics["outputTokenCount"]
-                                    latency = invocation_metrics["invocationLatency"]
-                                    lag = invocation_metrics["firstByteLatency"]
-                                    stats = f"token.in={input_token_count} token.out={output_token_count} latency={latency} lag={lag} finish_reason={finish_reason}"
-                                    await msg.stream_token(f"\n\n{stats}")
-
-
-
-class MetaBedrockModelStrategy(BedrockModelStrategy):
-
-    def create_request(self, inference_parameters: dict, prompt : str) -> dict:
-        request = {
-            "prompt": prompt,           
-            "temperature": inference_parameters.get("temperature"),
-            "top_p": inference_parameters.get("top_p"), #0.5,
-            #"top_k": inference_parameters.get("top_k"), #300,
-            "max_gen_len": inference_parameters.get("max_tokens_to_sample"), #2048,
-            #"stop_sequences": []
-        }
-        return request
-
-    async def process_response_stream(self, stream, msg : cl.Message):
-        print("meta")
-        await msg.stream_token("Meta")
-        if stream:
-            for event in stream:
-                chunk = event.get("chunk")
-                if chunk:
-                    object = json.loads(chunk.get("bytes").decode())
-                    print(object)
-                    if "generation" in object:
-                        completion = object["generation"]
-                        await msg.stream_token(completion)
-                    if "stop_reason" in object:
-                        finish_reason = object["stop_reason"]
-                        if finish_reason:
-                            if "amazon-bedrock-invocationMetrics" in object:
-                                invocation_metrics = object["amazon-bedrock-invocationMetrics"]
-                                if invocation_metrics:
-                                    input_token_count = invocation_metrics["inputTokenCount"]
-                                    output_token_count = invocation_metrics["outputTokenCount"]
-                                    latency = invocation_metrics["invocationLatency"]
-                                    lag = invocation_metrics["firstByteLatency"]
-                                    stats = f"token.in={input_token_count} token.out={output_token_count} latency={latency} lag={lag} finish_reason={finish_reason}"
-                                    await msg.stream_token(f"\n\n{stats}")
-
-
-class AI21BedrockModelStrategy(BedrockModelStrategy):
-
-    def create_request(self, inference_parameters: dict, prompt : str) -> dict:
-        request = {
-            "prompt": prompt,           
-            "temperature": inference_parameters.get("temperature"),
-            "topP": inference_parameters.get("top_p"), #0.5,
-            #"top_k": inference_parameters.get("top_k"), #300,
-            "maxTokens": inference_parameters.get("max_tokens_to_sample"), #2048,
-            #"stop_sequences": []
-        }
-        return request
-
-    def send_request(self, request:dict, bedrock_runtime, bedrock_model_id:str):
-        response = bedrock_runtime.invoke_model(modelId = bedrock_model_id, body = json.dumps(request))
-        return response
-    
-    async def process_response_stream(self, stream, msg : cl.Message):
-        #await msg.stream_token(f"AI21")
-        
-        object = json.loads(stream.read())
-        #print(object)
-        #print(object.get('completions')[0].get('data').get('text'))
-        text = object.get('completions')[0].get('data').get('text')
-        await msg.stream_token(f"{text}")
-
-
-
-
-class MistralBedrockModelStrategy(BedrockModelStrategy):
-
-    def create_request(self, inference_parameters: dict, prompt : str) -> dict:
-        request = {
-            "prompt": prompt,
-            "temperature": inference_parameters.get("temperature"),
-            "top_p": inference_parameters.get("top_p"), #0.5,
-            "top_k": inference_parameters.get("top_k"), #300,
-            "max_tokens": inference_parameters.get("max_tokens_to_sample"), #2048,
-            #"stop_sequences": []
-        }
-        return request
-
-    async def process_response_stream(self, stream, msg : cl.Message):
-        if stream:
-            for event in stream:
-                #print(f"Event: {event}")
-                chunk = event.get("chunk")
-                if chunk:
-                    object = json.loads(chunk.get("bytes").decode())
-                    #print(object)
-                    if "outputs" in object:
-                        outputs = object["outputs"]
-                        for index, output in enumerate(outputs):
-                            await msg.stream_token(output["text"])
-
-                            stop_reason = None
-                            if "stop_reason" in output:
-                                stop_reason = output["stop_reason"]
-                            
-                            if stop_reason == 'stop' or stop_reason == 'length':
-                                invocation_metrics = object["amazon-bedrock-invocationMetrics"]
-                                if invocation_metrics:
-                                    input_token_count = invocation_metrics["inputTokenCount"]
-                                    output_token_count = invocation_metrics["outputTokenCount"]
-                                    latency = invocation_metrics["invocationLatency"]
-                                    lag = invocation_metrics["firstByteLatency"]
-                                    stats = f"token.in={input_token_count} token.out={output_token_count} latency={latency} lag={lag}"
-                                    await msg.stream_token(f"\n\n{stats}")
