@@ -162,7 +162,7 @@ async def main(message: cl.Message):
     # Get ConversationChain from the user session
     conversation = cl.user_session.get("llm_chain") 
     llm_streaming = cl.user_session.get("llm_streaming") 
-
+    # InvokeModel and InvokeModelWithResponseStream
     if llm_streaming:
         res = await conversation.ainvoke(
             message.content, 
