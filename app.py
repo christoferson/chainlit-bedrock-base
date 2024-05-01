@@ -3,6 +3,7 @@ import boto3
 import chainlit as cl
 from typing import Optional
 import profiles.app_profile_chat
+import profiles.app_profile_data
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
@@ -32,11 +33,6 @@ async def chat_profile():
             icon="https://picsum.photos/200",
         ),
         cl.ChatProfile(
-            name="TRANSLATE",
-            markdown_description="The underlying LLM model is **GPT-3.5**.",
-            icon="https://picsum.photos/200",
-        ),
-        cl.ChatProfile(
             name="DATA",
             markdown_description="The underlying LLM model is **GPT-4**.",
             icon="https://picsum.photos/250",
@@ -52,6 +48,8 @@ async def main():
 
     if chat_profile == "CHAT":
         await profiles.app_profile_chat.on_chat_start()
+    elif chat_profile == "DATA":
+       await profiles.app_profile_data.on_chat_start()
     else:
        raise ValueError(f"Unsupported Profile. {chat_profile}")
 
@@ -62,6 +60,8 @@ async def setup_agent(settings):
 
     if chat_profile == "CHAT":
         await profiles.app_profile_chat.on_settings_update(settings)
+    elif chat_profile == "DATA":
+       await profiles.app_profile_data.on_settings_update(settings)
     else:
        raise ValueError(f"Unsupported Profile. {chat_profile}")
     
@@ -73,6 +73,8 @@ async def main(message: cl.Message):
 
     if chat_profile == "CHAT":
         await profiles.app_profile_chat.on_message(message)
+    elif chat_profile == "DATA":
+       await profiles.app_profile_data.on_message(message)
     else:
        raise ValueError(f"Unsupported Profile. {chat_profile}")
 
