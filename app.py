@@ -4,6 +4,7 @@ import chainlit as cl
 from typing import Optional
 import profiles.app_profile_chat
 import profiles.app_profile_data
+import profiles.app_profile_file
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
@@ -37,6 +38,11 @@ async def chat_profile():
             markdown_description="Retrieve and Generate",
             icon="https://picsum.photos/250",
         ),
+        cl.ChatProfile(
+            name="FILE",
+            markdown_description="Retrieve and Generate with File",
+            icon="https://picsum.photos/250",
+        ),
     ]
 
 @cl.on_chat_start
@@ -50,6 +56,8 @@ async def main():
         await profiles.app_profile_chat.on_chat_start()
     elif chat_profile == "DATA":
        await profiles.app_profile_data.on_chat_start()
+    elif chat_profile == "FILE":
+       await profiles.app_profile_file.on_chat_start()
     else:
        raise ValueError(f"Unsupported Profile. {chat_profile}")
 
@@ -62,6 +70,8 @@ async def setup_agent(settings):
         await profiles.app_profile_chat.on_settings_update(settings)
     elif chat_profile == "DATA":
        await profiles.app_profile_data.on_settings_update(settings)
+    elif chat_profile == "FILE":
+       await profiles.app_profile_file.on_settings_update(settings)
     else:
        raise ValueError(f"Unsupported Profile. {chat_profile}")
     
@@ -75,6 +85,8 @@ async def main(message: cl.Message):
         await profiles.app_profile_chat.on_message(message)
     elif chat_profile == "DATA":
        await profiles.app_profile_data.on_message(message)
+    elif chat_profile == "FILE":
+       await profiles.app_profile_file.on_message(message)
     else:
        raise ValueError(f"Unsupported Profile. {chat_profile}")
 
