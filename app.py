@@ -29,12 +29,12 @@ async def chat_profile():
     return [
         cl.ChatProfile(
             name="CHAT",
-            markdown_description="The underlying LLM model is **GPT-3.5**.",
+            markdown_description="Claude 3",
             icon="https://picsum.photos/200",
         ),
         cl.ChatProfile(
             name="DATA",
-            markdown_description="The underlying LLM model is **GPT-4**.",
+            markdown_description="Retrieve and Generate",
             icon="https://picsum.photos/250",
         ),
     ]
