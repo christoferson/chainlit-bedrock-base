@@ -6,6 +6,7 @@ import traceback
 import logging
 import app_bedrock
 import app_bedrock_lib
+import uuid
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
@@ -16,7 +17,7 @@ bedrock_runtime = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=AWS_REGION)
 
 async def on_chat_start():
-    
+
     kb_id_list = await app_bedrock_lib.list_knowledge_bases()
     model_ids = ["anthropic.claude-3-sonnet-20240229-v1:0"]
     settings = await cl.ChatSettings(
@@ -109,6 +110,7 @@ async def on_settings_update(settings):
 #@cl.on_message
 async def on_message(message: cl.Message):
 
+    session_id = cl.user_session.get("session_id")
     bedrock_model_id = cl.user_session.get("bedrock_model_id")
     inference_parameters = cl.user_session.get("inference_parameters")
     application_options = cl.user_session.get("application_options")
@@ -134,11 +136,11 @@ async def on_message(message: cl.Message):
 
     try:
 
-        response = bedrock_agent_runtime.retrieve_and_generate(
-            input = {
+        params = {
+            "input" : {
                 'text': prompt,
             },
-            retrieveAndGenerateConfiguration = {
+            "retrieveAndGenerateConfiguration" : {
                 'type': 'KNOWLEDGE_BASE',
                 'knowledgeBaseConfiguration': {
                     'knowledgeBaseId': knowledge_base_id,
@@ -156,7 +158,14 @@ async def on_message(message: cl.Message):
                     #    }
                     #}
                 }
-            }
+            },
+        }
+
+        if session_id != "" and session_id is not None:
+            params["sessionId"] = session_id #session_id=84219eab-2060-4a8f-a481-3356d66b8586
+
+        response = bedrock_agent_runtime.retrieve_and_generate(
+            **params
         )
 
         text = response['output']['text']
@@ -204,7 +213,7 @@ async def on_message(message: cl.Message):
 
         session_id = response['sessionId']
         await msg.stream_token(f"\nsession_id={session_id}")
-
+        cl.user_session.set("session_id", session_id)
 
     except Exception as e:
         logging.error(traceback.format_exc())
