@@ -6,7 +6,7 @@ import traceback
 import logging
 import app_bedrock
 import app_bedrock_lib
-import uuid
+import base64
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
@@ -117,21 +117,35 @@ async def on_message(message: cl.Message):
     knowledge_base_id = cl.user_session.get("knowledge_base_id") 
     llm_model_arn = cl.user_session.get("llm_model_arn") 
     bedrock_model_strategy : app_bedrock.BedrockModelStrategy = cl.user_session.get("bedrock_model_strategy")
+    text_file = cl.user_session.get("text_file")
+    text_file_text = cl.user_session.get("text_file_text")
 
     #create_prompt(self, application_options: dict, context_info: str, query: str) -> str:
     prompt_template = bedrock_model_strategy.create_prompt(application_options, "", message.content)
     #prompt = prompt_template.replace("{input}", message.content)
     #prompt = prompt.replace("{history}", "")
     prompt = prompt_template
-    print(prompt)
+    #print(prompt)
     #print(inference_parameters)
     request = bedrock_model_strategy.create_request(inference_parameters, prompt)
     #print(request)
-    print(f"{type(request)} {request}")
+    #print(f"{type(request)} {request}")
 
+    if text_file is None:
+        if not message.elements:
+            await cl.Message(content="No file attached").send()
+            return
+
+    if message.elements:
+        #text_file_list = [file for file in message.elements if "csv" in file.mime or "txt" in file.mime]
+        text_file = message.elements[0]
+        print(f"MIME: {text_file.mime}") # application/vnd.ms-excel #text/plain
+        with open(text_file.path, "rb") as f:
+            text_file_text = base64.b64encode(f.read())
+        cl.user_session.set("text_file", text_file)
+        cl.user_session.set("text_file_text", text_file_text)
 
     msg = cl.Message(content="")
-
     await msg.send()
 
     try:
@@ -140,26 +154,25 @@ async def on_message(message: cl.Message):
             "input" : {
                 'text': prompt,
             },
-            "retrieveAndGenerateConfiguration" : {
-                'type': 'KNOWLEDGE_BASE',
-                'knowledgeBaseConfiguration': {
-                    'knowledgeBaseId': knowledge_base_id,
-                    'modelArn': llm_model_arn,
-                    'retrievalConfiguration': {
-                        'vectorSearchConfiguration': {
-                            'numberOfResults': 3, #kb_retrieve_document_count,  #Minimum value of 1. Maximum value of 100
-                            #'overrideSearchType': 'HYBRID'|'SEMANTIC'
+            "retrieveAndGenerateConfiguration": {
+                "type": "EXTERNAL_SOURCES",
+                "externalSourcesConfiguration": {
+                    "modelArn": "anthropic.claude-3-sonnet-20240229-v1:0",
+                    "sources": [
+                        {
+                            "sourceType": "BYTE_CONTENT",
+                            "byteContent": {
+                                "contentType": text_file.mime,
+                                "data": text_file_text,
+                                "identifier": text_file.name,
+                            },
                         }
-                    },
-                    # Unknown parameter in retrieveAndGenerateConfiguration.knowledgeBaseConfiguration: "generationConfiguration", must be one of: knowledgeBaseId, modelArn, retrievalConfiguration
-                    #'generationConfiguration': {
-                    #    'promptTemplate': {
-                    #        'textPromptTemplate': prompt_template
-                    #    }
-                    #}
-                }
+                    ],
+                },
             },
         }
+
+
 
         if session_id != "" and session_id is not None:
             params["sessionId"] = session_id #session_id=84219eab-2060-4a8f-a481-3356d66b8586
