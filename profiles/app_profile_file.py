@@ -22,12 +22,12 @@ async def on_chat_start():
     model_ids = ["anthropic.claude-3-sonnet-20240229-v1:0"]
     settings = await cl.ChatSettings(
         [
-            Select(
-                id="KnowledgeBase",
-                label="KnowledgeBase ID",
-                values=kb_id_list,
-                initial_index=0
-            ),
+            #Select(
+            #    id="KnowledgeBase",
+            #    label="KnowledgeBase ID",
+            #    values=kb_id_list,
+            #    initial_index=0
+            #),
             Select(
                 id="Model",
                 label="Amazon Bedrock - Model",
@@ -75,11 +75,10 @@ async def on_chat_start():
 async def on_settings_update(settings):
 
     bedrock_model_id = settings["Model"]
-    knowledge_base_id = settings["KnowledgeBase"]
-    knowledge_base_id = knowledge_base_id.split(" ", 1)[0]
+    #knowledge_base_id = settings["KnowledgeBase"]
+    #knowledge_base_id = knowledge_base_id.split(" ", 1)[0]
     
     llm_model_arn = "arn:aws:bedrock:{}::foundation-model/{}".format(AWS_REGION, settings["Model"])
-
 
     application_options = dict (
         option_terse = False,
@@ -95,17 +94,15 @@ async def on_settings_update(settings):
         stop_sequences =  []
     )
 
-     #BedrockModelStrategy()    
     model_strategy = app_bedrock.BedrockModelStrategyFactory.create(bedrock_model_id)
-
 
     cl.user_session.set("bedrock_model_id", bedrock_model_id)
     cl.user_session.set("llm_model_arn", llm_model_arn)
-    cl.user_session.set("knowledge_base_id", knowledge_base_id)
+    #cl.user_session.set("knowledge_base_id", knowledge_base_id)
     cl.user_session.set("application_options", application_options)
     cl.user_session.set("inference_parameters", inference_parameters)
     cl.user_session.set("bedrock_model_strategy", model_strategy)
-    
+
 
 #@cl.on_message
 async def on_message(message: cl.Message):
@@ -114,7 +111,7 @@ async def on_message(message: cl.Message):
     bedrock_model_id = cl.user_session.get("bedrock_model_id")
     inference_parameters = cl.user_session.get("inference_parameters")
     application_options = cl.user_session.get("application_options")
-    knowledge_base_id = cl.user_session.get("knowledge_base_id") 
+    #knowledge_base_id = cl.user_session.get("knowledge_base_id") 
     llm_model_arn = cl.user_session.get("llm_model_arn") 
     bedrock_model_strategy : app_bedrock.BedrockModelStrategy = cl.user_session.get("bedrock_model_strategy")
     text_file = cl.user_session.get("text_file")
@@ -127,7 +124,7 @@ async def on_message(message: cl.Message):
     prompt = prompt_template
     #print(prompt)
     #print(inference_parameters)
-    request = bedrock_model_strategy.create_request(inference_parameters, prompt)
+    #request = bedrock_model_strategy.create_request(inference_parameters, prompt)
     #print(request)
     #print(f"{type(request)} {request}")
 
@@ -157,7 +154,7 @@ async def on_message(message: cl.Message):
             "retrieveAndGenerateConfiguration": {
                 "type": "EXTERNAL_SOURCES",
                 "externalSourcesConfiguration": {
-                    "modelArn": "anthropic.claude-3-sonnet-20240229-v1:0",
+                    "modelArn": llm_model_arn, #"anthropic.claude-3-sonnet-20240229-v1:0",
                     "sources": [
                         {
                             "sourceType": "BYTE_CONTENT",
@@ -172,57 +169,53 @@ async def on_message(message: cl.Message):
             },
         }
 
-
-
         if session_id != "" and session_id is not None:
             params["sessionId"] = session_id #session_id=84219eab-2060-4a8f-a481-3356d66b8586
 
-        response = bedrock_agent_runtime.retrieve_and_generate(
-            **params
-        )
+        response = bedrock_agent_runtime.retrieve_and_generate(**params)
 
         text = response['output']['text']
         await msg.stream_token(text)
+        #await msg.stream_token(str(response["citations"][0]))
+        
+#        async with cl.Step(name="KnowledgeBase", type="llm", root=False) as step:
+#            step.input = msg.content
 
-        async with cl.Step(name="KnowledgeBase", type="llm", root=False) as step:
-            step.input = msg.content
+#            elements = []
 
-            elements = []
+#            if "citations" in response:
+#                for citation in response["citations"]:
+#                    if "retrievedReferences" in citation:
+#                        references = citation["retrievedReferences"]
+#                        print(references)
+#                        reference_idx = 0
+#                        for reference in references:
+#                            reference_idx = reference_idx + 1
+#                            print(reference)
+#                            reference_name = f"r{reference_idx}"
+#                            reference_text = ""
+#                            reference_location_type = ""
+#                            reference_location_uri = ""
+#                            if "content" in reference:
+#                                content = reference["content"]
+#                                reference_text = content["text"]
+#                                #elements.append(cl.Text(name=f"r{reference_idx}", content=reference_text, display="inline"))
+#                            if "location" in reference:
+#                                location = reference["location"]
+#                                location_type = location["type"]
+#                                reference_location_type = location_type
+#                                if "S3" == location_type:
+#                                    location_uri = location["s3Location"]["uri"]
+#                                    reference_location_uri = location_uri
+#                                    reference_name = f"\n{reference_location_type}-{reference_location_uri}"
+#                            #await step.stream_token(f"\n{reference_location_type} {reference_location_uri}")
+#                            #elements.append(cl.Text(name=f"src_{reference_idx}", content=f"{location_uri}\n{reference_text}"))
+#                            elements.append(cl.Text(name=f"{reference_name}", content=reference_text, display="inline"))
 
-            if "citations" in response:
-                #print(response["citations"])
-                for citation in response["citations"]:
-                    if "retrievedReferences" in citation:
-                        references = citation["retrievedReferences"]
-                        #print(references)
-                        reference_idx = 0
-                        for reference in references:
-                            reference_idx = reference_idx + 1
-                            print(reference)
-                            reference_name = f"r{reference_idx}"
-                            reference_text = ""
-                            reference_location_type = ""
-                            reference_location_uri = ""
-                            if "content" in reference:
-                                content = reference["content"]
-                                reference_text = content["text"]
-                                #elements.append(cl.Text(name=f"r{reference_idx}", content=reference_text, display="inline"))
-                            if "location" in reference:
-                                location = reference["location"]
-                                location_type = location["type"]
-                                reference_location_type = location_type
-                                if "S3" == location_type:
-                                    location_uri = location["s3Location"]["uri"]
-                                    reference_location_uri = location_uri
-                                    reference_name = f"\n{reference_location_type}-{reference_location_uri}"
-                            #await step.stream_token(f"\n{reference_location_type} {reference_location_uri}")
-                            #elements.append(cl.Text(name=f"src_{reference_idx}", content=f"{location_uri}\n{reference_text}"))
-                            elements.append(cl.Text(name=f"{reference_name}", content=reference_text, display="inline"))
-
-            step.elements = elements
-            prompt_display = prompt.replace("\n", "").rstrip()
-            await step.stream_token(f"{prompt_display}")
-            await step.send()
+#           step.elements = elements
+            #prompt_display = prompt.replace("\n", "").rstrip()
+            #await step.stream_token(f"{prompt_display}")
+#            await step.send()
 
         session_id = response['sessionId']
         await msg.stream_token(f"\nsession_id={session_id}")
