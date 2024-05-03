@@ -15,14 +15,8 @@ class BedrockModelStrategy():
 
     def _create_prompt(self, application_options: dict, query: str) -> str:
 
-        option_terse = application_options.get("option_terse")
+        prompt = f"""Please answer the following question to the best of your ability. If you are unsure or don't have enough information to provide a confident answer, simply say "I don't know" or "I'm not sure."
 
-        terse_instructions = ""
-        if option_terse == True:
-            terse_instructions = "Unless otherwise instructed, omit any preamble and provide terse and concise one liner answer."
-
-        prompt = f"""Please answer the question while following instructions provided. 
-        {terse_instructions}
         \n\nHuman: {query}
 
         Assistant:
