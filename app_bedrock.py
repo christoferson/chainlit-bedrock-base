@@ -62,6 +62,9 @@ class BedrockModelStrategy():
         print("unknown")
         await msg.stream_token("unknown")
 
+    #Todo Utils: amazon-bedrock-invocationMetrics 
+
+
 class BedrockModelStrategyFactory():
 
     @staticmethod
@@ -88,7 +91,6 @@ class BedrockModelStrategyFactory():
             model_strategy = MistralBedrockModelStrategy()
         else:
             raise ValueError(f"Not Supported Model. Model={bedrock_model_id} Provide={provider}")
-            #model_strategy = BedrockModelStrategy()
         
         return model_strategy
     
@@ -140,7 +142,7 @@ class AnthropicClaude3MsgBedrockModelStrategy(BedrockModelStrategy):
 
         request = {
             "anthropic_version": "bedrock-2023-05-31",
-            #"prompt": prompt,
+
             "temperature": inference_parameters.get("temperature"),
             "top_p": inference_parameters.get("top_p"), #0.5,
             "top_k": inference_parameters.get("top_k"), #300,
@@ -169,6 +171,34 @@ class AnthropicClaude3MsgBedrockModelStrategy(BedrockModelStrategy):
         pass
 
 class AnthropicClaude3MsgBedrockModelAsyncStrategy(BedrockModelStrategy):
+
+    def create_prompt(self, application_options: dict, context_info: str, query: str) -> str:
+
+        option_terse = application_options.get("option_terse")
+        option_strict = application_options.get("option_strict")
+        option_source_table_markdown_display = application_options.get("option_source_table_markdown_display")
+
+        strict_instructions = ""
+        if option_strict == True:
+            strict_instructions = "- Only answer if you know the answer with certainty and is evident from the provided context."
+
+        terse_instructions = ""
+        if option_terse == True:
+            terse_instructions = "Unless otherwise instructed, omit any preamble and provide terse and concise one liner answer."
+
+        source_table_markdown_display_instructions = ""
+        if option_source_table_markdown_display == True:
+            source_table_markdown_display_instructions = "- Present source data in tabular form as markdown."
+        
+
+        prompt = f"""Please answer the question with the provided context while following instructions provided. {terse_instructions}
+        <context>{context_info}</context>
+        <instructions>
+        - Do not reformat, or convert any numeric values. Inserting commas is allowed for readability. {source_table_markdown_display_instructions} {strict_instructions}
+        </instructions>
+        <question>{query}</question>"""
+
+        return prompt
 
     def create_request(self, inference_parameters: dict, prompt : str) -> dict:
 

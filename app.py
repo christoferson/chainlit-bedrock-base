@@ -23,7 +23,6 @@ def auth_callback(username: str, password: str) -> Optional[cl.User]:
   else:
     return None
 
-
 @cl.set_chat_profiles
 async def chat_profile():
     #if current_user.metadata["role"] != "ADMIN":
@@ -32,7 +31,7 @@ async def chat_profile():
         cl.ChatProfile(
             name="CHAT",
             markdown_description="Claude 3",
-            icon="https://picsum.photos/200",
+            icon="https://picsum.photos/250",
         ),
         cl.ChatProfile(
             name="DATA",

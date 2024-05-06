@@ -160,5 +160,6 @@ cython_debug/
 #.idea/
 
 
-backup/
-response-samples/
+backup
+response-samples
+.files
