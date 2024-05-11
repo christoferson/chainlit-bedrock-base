@@ -218,7 +218,7 @@ async def on_message(message: cl.Message):
 #            await step.send()
 
         session_id = response['sessionId']
-        await msg.stream_token(f"\nsession_id={session_id}")
+        #await msg.stream_token(f"\nsession_id={session_id}")
         cl.user_session.set("session_id", session_id)
 
     except Exception as e:

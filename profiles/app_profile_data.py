@@ -6,7 +6,7 @@ import traceback
 import logging
 import app_bedrock
 import app_bedrock_lib
-import uuid
+#import uuid
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]

@@ -80,7 +80,6 @@ async def on_settings_update(settings):
         stop_sequences =  []
     )
 
-     #BedrockModelStrategy()    
     model_strategy = app_bedrock.BedrockModelStrategyFactory.create(bedrock_model_id)
 
     cl.user_session.set("bedrock_model_id", bedrock_model_id)
