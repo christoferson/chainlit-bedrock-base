@@ -15,7 +15,17 @@ bedrock_runtime = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 
 async def on_chat_start():
     
-    model_ids = ["anthropic.claude-3-sonnet-20240229-v1:0"]
+    model_ids = [
+        "anthropic.claude-3-sonnet-20240229-v1:0",
+        "anthropic.claude-3-haiku-20240307-v1:0",
+        "amazon.titan-text-express-v1",
+        "mistral.mistral-7b-instruct-v0:2",
+        "mistral.mixtral-8x7b-instruct-v0:1",
+        "cohere.command-light-text-v14",
+        "cohere.command-text-v14",
+        "ai21.j2-mid"
+    ]
+
     settings = await cl.ChatSettings(
         [
             Select(
@@ -96,10 +106,7 @@ async def on_message(message: cl.Message):
     application_options = cl.user_session.get("application_options")
     bedrock_model_strategy : app_bedrock.BedrockModelStrategy = cl.user_session.get("bedrock_model_strategy")
 
-    #create_prompt(self, application_options: dict, context_info: str, query: str) -> str:
     prompt_template = bedrock_model_strategy.create_prompt(application_options, "", message.content)
-    #prompt = prompt_template.replace("{input}", message.content)
-    #prompt = prompt.replace("{history}", "")
     prompt = prompt_template
     print(prompt)
     #print(inference_parameters)
@@ -113,11 +120,8 @@ async def on_message(message: cl.Message):
 
     try:
 
-        #response = bedrock_runtime.invoke_model_with_response_stream(modelId = bedrock_model_id, body = json.dumps(request))
         response = bedrock_model_strategy.send_request(request, bedrock_runtime, bedrock_model_id)
 
-        #stream = response["body"]
-        #await bedrock_model_strategy.process_response_stream(stream, msg)
         await bedrock_model_strategy.process_response(response, msg)
 
     except Exception as e:

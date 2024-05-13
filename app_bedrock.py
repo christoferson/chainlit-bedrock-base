@@ -172,7 +172,8 @@ class AnthropicClaude3MsgBedrockModelStrategy(BedrockModelStrategy):
 
 class AnthropicClaude3MsgBedrockModelAsyncStrategy(BedrockModelStrategy):
 
-    def create_prompt(self, application_options: dict, context_info: str, query: str) -> str:
+    def _create_prompt_with_context(self, application_options: dict, context_info: str, query: str) -> str:
+    #def create_prompt(self, application_options: dict, context_info: str, query: str) -> str:
 
         option_terse = application_options.get("option_terse")
         option_strict = application_options.get("option_strict")
