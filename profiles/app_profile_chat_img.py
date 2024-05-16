@@ -99,6 +99,11 @@ async def on_settings_update(settings):
 #@cl.on_message
 async def on_message(message: cl.Message):
 
+    mime_mapping = {
+        "image/png": "PNG",
+        "image/jpeg": "JPEG"
+    }
+
     bedrock_model_id = cl.user_session.get("bedrock_model_id")
     inference_parameters = cl.user_session.get("inference_parameters")
     application_options = cl.user_session.get("application_options")
@@ -114,15 +119,12 @@ async def on_message(message: cl.Message):
             return
 
     if message.elements:
-        #text_file_list = [file for file in message.elements if "csv" in file.mime or "txt" in file.mime]
         text_file = message.elements[0]
         print(f"MIME: {text_file.mime}") # application/vnd.ms-excel #text/plain
-        with open(text_file.path, "rb") as f:
-            text_file_text = str(base64.b64encode(f.read()))
-            text_file_mime = text_file.mime
-
-        input_image_b64 = image_to_base64(Image.open(text_file.path)) #.resize((size, size)
+        image = Image.open(text_file.path)
+        input_image_b64 = image_to_base64(image, mime_mapping[text_file.mime]) #.resize((size, size)
         text_file_text = input_image_b64
+        text_file_mime = text_file.mime
 
         cl.user_session.set("text_file", text_file)
         cl.user_session.set("text_file_text", text_file_text)
@@ -130,12 +132,8 @@ async def on_message(message: cl.Message):
 
     prompt_template = bedrock_model_strategy.create_prompt(application_options, "", message.content)
     prompt = prompt_template
-    print(prompt)
+    #print(prompt)
     await cl.Message(content=f"mime={text_file_mime}").send()
-    #print(inference_parameters)
-    #request = bedrock_model_strategy.create_request(inference_parameters, prompt)
-    ###
-    #await cl.Message(content=f"mime={messages}").send()
 
     request = {
         "anthropic_version": "bedrock-2023-05-31",
@@ -167,9 +165,7 @@ async def on_message(message: cl.Message):
         #"stop_sequences": []
     }
     ####
-    #print(request)
-    #print(f"{type(request)} {request}")
-    await cl.Message(content=f"mime={json.dumps(request)}").send()
+    #await cl.Message(content=f"mime={json.dumps(request)}").send()
 
     msg = cl.Message(content="")
 
@@ -191,7 +187,7 @@ async def on_message(message: cl.Message):
 
 
 
-def image_to_base64(image):
+def image_to_base64(image,mime_type:str):
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
+    image.save(buffer, format=mime_type)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
