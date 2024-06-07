@@ -95,6 +95,12 @@ async def on_chat_start():
                 max = 4096,
                 step = 256,
             ),
+            Select(
+                id = "RetrieveSearchType",
+                label = "RetrieveSearchType",
+                values = ["AUTO", "HYBRID", "SEMANTIC"], #HYBRID'|'SEMANTIC'
+                initial_index = 0,
+            ),
             Switch(id="Strict", label="Retrieve - Limit Answers to KnowledgeBase", initial=False),
             Switch(id="Terse", label="Terse - Terse & Consise Answers", initial=False),
             Switch(id="SourceTableMarkdown", label="Source Tables Markdown Display", initial=True),
@@ -127,6 +133,7 @@ async def on_settings_update(settings):
     )
 
     application_options = dict (
+        retrieve_search_type = settings["RetrieveSearchType"],
         option_terse = settings["Terse"],
         option_strict = settings["Strict"],
         option_source_table_markdown_display = settings["SourceTableMarkdown"],
@@ -152,6 +159,7 @@ async def on_message(message: cl.Message):
     option_strict = application_options.get("option_strict")
     option_terse = application_options.get("option_terse")
     kb_retrieve_document_count = cl.user_session.get("kb_retrieve_document_count")
+    retrieve_search_type = application_options.get("retrieve_search_type")
 
     query = message.content
 
@@ -178,11 +186,14 @@ async def on_message(message: cl.Message):
                     'vectorSearchConfiguration': {
                         'numberOfResults': kb_retrieve_document_count
                     }
-                    # 'overrideSearchType': 'HYBRID'|'SEMANTIC'
                 }
-
+            
                 vector_search_configuration = retrieval_configuration['vectorSearchConfiguration']
-                
+
+                if retrieve_search_type != "AUTO":
+                    vector_search_configuration['overrideSearchType'] = retrieve_search_type
+
+
                 vector_search_configuration['filter'] = {
                     "startsWith": {
                         "key": "x-amz-bedrock-kb-source-uri",
@@ -206,12 +217,13 @@ async def on_message(message: cl.Message):
                     text = retrievalResult['content']['text']
                     excerpt = text[0:75]
                     score = retrievalResult['score']
+                    display_uri = uri.replace(AWS_KB_BUCKET, "bucket")
                     print(f"{i} RetrievalResult: {score} {uri} {excerpt}")
                     #await msg.stream_token(f"\n{i} RetrievalResult: {score} {uri} {excerpt}\n")
                     context_info += f"{text}\n" #context_info += f"<p>${text}</p>\n" #context_info += f"${text}\n"
                     #await step.stream_token(f"\n[{i+1}] score={score} uri={uri} len={len(text)} text={excerpt}\n")
-                    await step.stream_token(f"\n[{i+1}] score={score} uri={uri} len={len(text)}\n")
-                    reference_elements.append(cl.Text(name=f"[{i+1}] {uri}", content=text, display="inline"))
+                    await step.stream_token(f"\n[{i+1}] score={score} uri={display_uri} len={len(text)}\n")
+                    reference_elements.append(cl.Text(name=f"[{i+1}] {display_uri}", content=text, display="inline"))
                 
                 await step.stream_token(f"\n")
                 step.elements = reference_elements
