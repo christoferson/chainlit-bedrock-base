@@ -10,6 +10,7 @@ import app_bedrock_lib
 from botocore.exceptions import ClientError
 
 AWS_REGION = os.environ["AWS_REGION"]
+AWS_KB_BUCKET = os.environ["AWS_KB_BUCKET"]
 
 bedrock = boto3.client("bedrock", region_name=AWS_REGION)
 bedrock_runtime = boto3.client('bedrock-runtime', region_name=AWS_REGION)
@@ -173,16 +174,30 @@ async def on_message(message: cl.Message):
                 Assistant:
                 """
 
+                retrieval_configuration={
+                    'vectorSearchConfiguration': {
+                        'numberOfResults': kb_retrieve_document_count
+                    }
+                    # 'overrideSearchType': 'HYBRID'|'SEMANTIC'
+                }
+
+                vector_search_configuration = retrieval_configuration['vectorSearchConfiguration']
+                
+                vector_search_configuration['filter'] = {
+                    "startsWith": {
+                        "key": "x-amz-bedrock-kb-source-uri",
+                        "value": f"s3://{AWS_KB_BUCKET}/"
+                    }
+                }
+
+                print(vector_search_configuration)
+
                 response = bedrock_agent_runtime.retrieve(
                     knowledgeBaseId = knowledge_base_id,
                     retrievalQuery={
                         'text': prompt,
                     },
-                    retrievalConfiguration={
-                        'vectorSearchConfiguration': {
-                            'numberOfResults': kb_retrieve_document_count
-                        }
-                    }
+                    retrievalConfiguration=retrieval_configuration
                 )
 
                 reference_elements = []
