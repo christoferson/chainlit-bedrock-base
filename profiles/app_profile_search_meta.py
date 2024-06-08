@@ -1,7 +1,7 @@
 import os
 import boto3
 import chainlit as cl
-from chainlit.input_widget import Select, Slider, Switch
+from chainlit.input_widget import Select, Slider, Switch, Tags
 import traceback
 import logging
 import app_bedrock
@@ -101,6 +101,12 @@ async def on_chat_start():
                 values = ["AUTO", "HYBRID", "SEMANTIC"], #HYBRID'|'SEMANTIC'
                 initial_index = 0,
             ),
+            Select(
+                id = "MetadataYear",
+                label = "Metadata - Year",
+                values = ["ALL", "2023", "2022"],
+                initial_index = 0,
+            ),
             Switch(id="Strict", label="Retrieve - Limit Answers to KnowledgeBase", initial=False),
             Switch(id="Terse", label="Terse - Terse & Consise Answers", initial=False),
             Switch(id="SourceTableMarkdown", label="Source Tables Markdown Display", initial=True),
@@ -134,6 +140,7 @@ async def on_settings_update(settings):
 
     application_options = dict (
         retrieve_search_type = settings["RetrieveSearchType"],
+        metadata_year = settings["MetadataYear"],
         option_terse = settings["Terse"],
         option_strict = settings["Strict"],
         option_source_table_markdown_display = settings["SourceTableMarkdown"],
@@ -160,6 +167,7 @@ async def on_message(message: cl.Message):
     option_terse = application_options.get("option_terse")
     kb_retrieve_document_count = cl.user_session.get("kb_retrieve_document_count")
     retrieve_search_type = application_options.get("retrieve_search_type")
+    metadata_year = application_options.get("metadata_year")
 
     query = message.content
 
@@ -192,12 +200,15 @@ async def on_message(message: cl.Message):
 
                 if retrieve_search_type != "AUTO":
                     vector_search_configuration['overrideSearchType'] = retrieve_search_type
-
+                
+                filter_bucket_path_prefix = f"s3://{AWS_KB_BUCKET}/"
+                if metadata_year != "ALL":
+                    filter_bucket_path_prefix += f"{metadata_year}/"
 
                 vector_search_configuration['filter'] = {
                     "startsWith": {
                         "key": "x-amz-bedrock-kb-source-uri",
-                        "value": f"s3://{AWS_KB_BUCKET}/"
+                        "value": filter_bucket_path_prefix
                     }
                 }
 
