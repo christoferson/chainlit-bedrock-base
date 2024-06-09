@@ -6,6 +6,7 @@ import traceback
 import logging
 import app_bedrock
 import app_bedrock_lib
+from dataclasses import dataclass
 
 from botocore.exceptions import ClientError
 
@@ -161,35 +162,49 @@ async def on_settings_update(settings):
     cl.user_session.set("kb_retrieve_document_count", kb_retrieve_document_count)
     cl.user_session.set("application_options", application_options)
 
+@dataclass
+class MetadataCondition:
+    def __init__(self, operator, key, value):
+        self.operator = operator
+        self.key = key
+        self.value = value
+
 async def medatata_create_filter_condition(application_options):
 
     #retrieve_search_type = application_options.get("retrieve_search_type")
     metadata_year = application_options.get("metadata_year")
-    #metadata_category = application_options.get("metadata_category")
+    metadata_category = application_options.get("metadata_category")
+
+    conditions:list[MetadataCondition] = []
 
     filter_bucket_path_prefix = f"s3://{AWS_KB_BUCKET}/"
     if metadata_year != "ALL":
         filter_bucket_path_prefix += f"{metadata_year}/"
+        conditions.append(MetadataCondition("startsWith", "x-amz-bedrock-kb-source-uri", filter_bucket_path_prefix))
+    else:
+        conditions.append(MetadataCondition("startsWith", "x-amz-bedrock-kb-source-uri", filter_bucket_path_prefix))
 
-    # metadata_category
-
-    filter = {
-        'andAll': [
-            {
-                "startsWith": {
-                    "key": "x-amz-bedrock-kb-source-uri",
-                    "value": filter_bucket_path_prefix
-                }
+    if len(conditions) == 1:
+        condition = conditions[0]
+        filter = {        
+            condition.operator: {
+                "key": condition.key,
+                "value": condition.value
             }
-        ]
-    }
-
-    filter = {        
-        "startsWith": {
-            "key": "x-amz-bedrock-kb-source-uri",
-            "value": filter_bucket_path_prefix
         }
-    }
+    else:
+        filter = {
+            'andAll': [
+                {
+                    "startsWith": {
+                        "key": "x-amz-bedrock-kb-source-uri",
+                        "value": filter_bucket_path_prefix
+                    }
+                }
+            ]
+        }
+
+   
 
     return filter
 
@@ -242,12 +257,6 @@ async def on_message(message: cl.Message):
 
                 if retrieve_search_type != "AUTO":
                     vector_search_configuration['overrideSearchType'] = retrieve_search_type
-                
-                filter_bucket_path_prefix = f"s3://{AWS_KB_BUCKET}/"
-                if metadata_year != "ALL":
-                    filter_bucket_path_prefix += f"{metadata_year}/"
-
-                # metadata_category
 
                 vector_search_configuration['filter'] = await medatata_create_filter_condition(application_options)
 
@@ -255,10 +264,10 @@ async def on_message(message: cl.Message):
 
                 response = bedrock_agent_runtime.retrieve(
                     knowledgeBaseId = knowledge_base_id,
-                    retrievalQuery={
+                    retrievalQuery = {
                         'text': prompt,
                     },
-                    retrievalConfiguration=retrieval_configuration
+                    retrievalConfiguration = retrieval_configuration
                 )
 
                 reference_elements = []
