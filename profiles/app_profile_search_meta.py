@@ -107,6 +107,12 @@ async def on_chat_start():
                 values = ["ALL", "2023", "2022"],
                 initial_index = 0,
             ),
+            Select(
+                id = "MetadataCategory",
+                label = "Metadata - Category",
+                values = ["ALL", "Travel", "Wage", "Attendance"],
+                initial_index = 0,
+            ),
             Switch(id="Strict", label="Retrieve - Limit Answers to KnowledgeBase", initial=False),
             Switch(id="Terse", label="Terse - Terse & Consise Answers", initial=False),
             Switch(id="SourceTableMarkdown", label="Source Tables Markdown Display", initial=True),
@@ -141,6 +147,8 @@ async def on_settings_update(settings):
     application_options = dict (
         retrieve_search_type = settings["RetrieveSearchType"],
         metadata_year = settings["MetadataYear"],
+        metadata_category = settings["MetadataCategory"],
+
         option_terse = settings["Terse"],
         option_strict = settings["Strict"],
         option_source_table_markdown_display = settings["SourceTableMarkdown"],
@@ -152,7 +160,40 @@ async def on_settings_update(settings):
     cl.user_session.set("knowledge_base_id", knowledge_base_id)
     cl.user_session.set("kb_retrieve_document_count", kb_retrieve_document_count)
     cl.user_session.set("application_options", application_options)
-    
+
+async def medatata_create_filter_condition(application_options):
+
+    #retrieve_search_type = application_options.get("retrieve_search_type")
+    metadata_year = application_options.get("metadata_year")
+    #metadata_category = application_options.get("metadata_category")
+
+    filter_bucket_path_prefix = f"s3://{AWS_KB_BUCKET}/"
+    if metadata_year != "ALL":
+        filter_bucket_path_prefix += f"{metadata_year}/"
+
+    # metadata_category
+
+    filter = {
+        'andAll': [
+            {
+                "startsWith": {
+                    "key": "x-amz-bedrock-kb-source-uri",
+                    "value": filter_bucket_path_prefix
+                }
+            }
+        ]
+    }
+
+    filter = {        
+        "startsWith": {
+            "key": "x-amz-bedrock-kb-source-uri",
+            "value": filter_bucket_path_prefix
+        }
+    }
+
+    return filter
+
+
 
 #@cl.on_message
 async def on_message(message: cl.Message):
@@ -168,6 +209,7 @@ async def on_message(message: cl.Message):
     kb_retrieve_document_count = cl.user_session.get("kb_retrieve_document_count")
     retrieve_search_type = application_options.get("retrieve_search_type")
     metadata_year = application_options.get("metadata_year")
+    metadata_category = application_options.get("metadata_category")
 
     query = message.content
 
@@ -205,12 +247,9 @@ async def on_message(message: cl.Message):
                 if metadata_year != "ALL":
                     filter_bucket_path_prefix += f"{metadata_year}/"
 
-                vector_search_configuration['filter'] = {
-                    "startsWith": {
-                        "key": "x-amz-bedrock-kb-source-uri",
-                        "value": filter_bucket_path_prefix
-                    }
-                }
+                # metadata_category
+
+                vector_search_configuration['filter'] = await medatata_create_filter_condition(application_options)
 
                 print(vector_search_configuration)
 
