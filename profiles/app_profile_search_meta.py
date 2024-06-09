@@ -7,6 +7,7 @@ import logging
 import app_bedrock
 import app_bedrock_lib
 from dataclasses import dataclass
+import json
 
 from botocore.exceptions import ClientError
 
@@ -16,6 +17,10 @@ AWS_KB_BUCKET = os.environ["AWS_KB_BUCKET"]
 bedrock = boto3.client("bedrock", region_name=AWS_REGION)
 bedrock_runtime = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 bedrock_agent_runtime = boto3.client('bedrock-agent-runtime', region_name=AWS_REGION)
+
+system_message = """
+You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question, please state that you could not find an exact answer to the question. Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
+"""
 
 async def on_chat_start():
 
@@ -111,7 +116,7 @@ async def on_chat_start():
             Select(
                 id = "MetadataCategory",
                 label = "Metadata - Category",
-                values = ["ALL", "Travel", "Wage", "Attendance"],
+                values = ["ALL", "FAQ", "Travel", "Wage", "Attendance"],
                 initial_index = 0,
             ),
             Switch(id="Strict", label="Retrieve - Limit Answers to KnowledgeBase", initial=False),
@@ -171,6 +176,8 @@ class MetadataCondition:
 
 async def medatata_create_filter_condition(application_options):
 
+    filter = None
+
     #retrieve_search_type = application_options.get("retrieve_search_type")
     metadata_year = application_options.get("metadata_year")
     metadata_category = application_options.get("metadata_category")
@@ -184,6 +191,11 @@ async def medatata_create_filter_condition(application_options):
     else:
         conditions.append(MetadataCondition("startsWith", "x-amz-bedrock-kb-source-uri", filter_bucket_path_prefix))
 
+    if metadata_category != "ALL":
+        #values = ["ALL", "FAQ", "Travel", "Wage", "Attendance"],
+        category_filter_value = metadata_category.lower()
+        conditions.append(MetadataCondition("stringContains", "category", category_filter_value))
+
     if len(conditions) == 1:
         condition = conditions[0]
         filter = {        
@@ -193,18 +205,22 @@ async def medatata_create_filter_condition(application_options):
             }
         }
     else:
-        filter = {
-            'andAll': [
-                {
-                    "startsWith": {
-                        "key": "x-amz-bedrock-kb-source-uri",
-                        "value": filter_bucket_path_prefix
-                    }
+        filter_conditions = []
+        for condition in conditions:
+            filter_conditions.append({
+                condition.operator: {
+                    "key": condition.key,
+                    "value": condition.value
                 }
-            ]
+            })
+        
+        filter = {
+            #'andAll': filter_conditions
+            'orAll': filter_conditions
         }
 
-   
+    json_str = json.dumps(filter, indent=3)
+    print(json_str)
 
     return filter
 
@@ -260,7 +276,8 @@ async def on_message(message: cl.Message):
 
                 vector_search_configuration['filter'] = await medatata_create_filter_condition(application_options)
 
-                print(vector_search_configuration)
+                json_str = json.dumps(vector_search_configuration, indent=3)
+                print(json_str)
 
                 response = bedrock_agent_runtime.retrieve(
                     knowledgeBaseId = knowledge_base_id,
@@ -289,7 +306,8 @@ async def on_message(message: cl.Message):
 
             except Exception as e:
                 logging.error(traceback.format_exc())
-                await msg.stream_token(f"{e}")
+                await msg.stream_token(f"RetrieveError: {e}\n\n")
+                return
             finally:
                 await step.send()
 
