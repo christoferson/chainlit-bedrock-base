@@ -194,7 +194,7 @@ async def medatata_create_filter_condition(application_options):
     if metadata_category != "ALL":
         #values = ["ALL", "FAQ", "Travel", "Wage", "Attendance"],
         category_filter_value = metadata_category.lower()
-        conditions.append(MetadataCondition("stringContains", "category", category_filter_value))
+        conditions.append(MetadataCondition("equals", "category", category_filter_value))
 
     if len(conditions) == 1:
         condition = conditions[0]
@@ -215,8 +215,8 @@ async def medatata_create_filter_condition(application_options):
             })
         
         filter = {
-            #'andAll': filter_conditions
-            'orAll': filter_conditions
+            'andAll': filter_conditions
+            #'orAll': filter_conditions
         }
 
     json_str = json.dumps(filter, indent=3)
@@ -293,13 +293,15 @@ async def on_message(message: cl.Message):
                     text = retrievalResult['content']['text']
                     excerpt = text[0:75]
                     score = retrievalResult['score']
+                    metadata = retrievalResult['metadata']
                     display_uri = uri.replace(AWS_KB_BUCKET, "bucket")
                     print(f"{i} RetrievalResult: {score} {uri} {excerpt}")
                     #await msg.stream_token(f"\n{i} RetrievalResult: {score} {uri} {excerpt}\n")
                     context_info += f"{text}\n" #context_info += f"<p>${text}</p>\n" #context_info += f"${text}\n"
+                    content_info = f"{text}\n{metadata}\n"
                     #await step.stream_token(f"\n[{i+1}] score={score} uri={uri} len={len(text)} text={excerpt}\n")
                     await step.stream_token(f"\n[{i+1}] score={score} uri={display_uri} len={len(text)}\n")
-                    reference_elements.append(cl.Text(name=f"[{i+1}] {display_uri}", content=text, display="inline"))
+                    reference_elements.append(cl.Text(name=f"[{i+1}] {display_uri}", content=content_info, display="inline"))
                 
                 await step.stream_token(f"\n")
                 step.elements = reference_elements
