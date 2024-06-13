@@ -110,7 +110,7 @@ async def on_chat_start():
             Select(
                 id = "MetadataYear",
                 label = "Metadata - Year",
-                values = ["ALL", "2023", "2022"],
+                values = ["ALL", "2024", "2023", "2022"],
                 initial_index = 0,
             ),
             Select(
@@ -187,7 +187,8 @@ async def medatata_create_filter_condition(application_options):
     filter_bucket_path_prefix = f"s3://{AWS_KB_BUCKET}/"
     if metadata_year != "ALL":
         filter_bucket_path_prefix += f"{metadata_year}/"
-        conditions.append(MetadataCondition("startsWith", "x-amz-bedrock-kb-source-uri", filter_bucket_path_prefix))
+        #conditions.append(MetadataCondition("startsWith", "x-amz-bedrock-kb-source-uri", filter_bucket_path_prefix))
+        conditions.append(MetadataCondition("stringContains", "x-amz-bedrock-kb-source-uri", f"/{metadata_year}/"))
     else:
         conditions.append(MetadataCondition("startsWith", "x-amz-bedrock-kb-source-uri", filter_bucket_path_prefix))
 

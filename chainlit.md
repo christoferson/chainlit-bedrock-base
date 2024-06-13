@@ -3,7 +3,7 @@
 ## About
 Chat application to showcase Amazon Bedrock, using Chainlit and LangChain.  
 Settings are available to select from multiple models as well as set inference parameters.
-Version 1.1 Feb 24 2024
+Version 1.2 Feb 24 2024
 
 ### Models
 Default: `anthropic.claude-v2`
