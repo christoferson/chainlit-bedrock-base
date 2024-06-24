@@ -8,14 +8,20 @@ import traceback
 import logging
 import app_bedrock
 from io import BytesIO
+import cmn.cmn_lib
+import uuid
 
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
 AUTH_ADMIN_PWD = os.environ["AUTH_ADMIN_PWD"]
 
+AWS_BUCKET_TRANSCRIBE = os.environ["AWS_BUCKET_TRANSCRIBE"]
+
 bedrock = boto3.client("bedrock", region_name=AWS_REGION)
 bedrock_runtime = boto3.client('bedrock-runtime', region_name=AWS_REGION)
+s3_client = boto3.client('s3', region_name=AWS_REGION)
+transcribe_client = boto3.client("transcribe", region_name=AWS_REGION)
 
 async def on_chat_start():
     
@@ -163,7 +169,7 @@ async def on_audio_end(elements: list[ElementBased]):
     # Get the audio buffer from the session
     audio_buffer: BytesIO = cl.user_session.get("audio_buffer")
     audio_buffer.seek(0)  # Move the file pointer to the beginning
-    audio_file = audio_buffer.read()
+    audio_file:bytes = audio_buffer.read()
     audio_mime_type: str = cl.user_session.get("audio_mime_type")
 
    # Apply Speech to Text or any other processing
@@ -177,3 +183,26 @@ async def on_audio_end(elements: list[ElementBased]):
         content="",
         elements=[input_audio_el, *elements]
     ).send()
+
+    audio_id = str(uuid.uuid4())
+    bucket_name = AWS_BUCKET_TRANSCRIBE
+    bucket_key = f"{audio_id}.ogg"
+    audio_s3_uri = f"s3://{bucket_name}/{bucket_key}"
+
+    saving_audio_message = f"""Saving Audio.
+    audio = {audio_s3_uri}
+    """
+    await cl.Message(content=saving_audio_message).send()
+    s3_client.put_object(Body=audio_file, Bucket=bucket_name, Key=bucket_key, ContentType=audio_mime_type)
+
+    transcribe_start_message = f"""Transcribe Start.
+    in = {audio_s3_uri}
+    """
+    await cl.Message(content=transcribe_start_message).send()
+    transcript_file_uri = cmn.cmn_lib.transcribe_file(f"{audio_id}-job", audio_s3_uri, transcribe_client)
+
+    transcribe_complete_message = f"""Transcribe Complete.
+    in = {audio_s3_uri}
+    out = [transcript_file]({transcript_file_uri})
+    """
+    await cl.Message(content=transcribe_complete_message).send()
