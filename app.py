@@ -1,13 +1,17 @@
+from __future__ import annotations
 import os
 import boto3
 import chainlit as cl
+from chainlit.element import ElementBased
 from typing import Optional
+from typing import List
 import profiles.app_profile_chat
 import profiles.app_profile_data
 import profiles.app_profile_file
 import profiles.app_profile_search
 import profiles.app_profile_search_meta
 import profiles.app_profile_chat_img
+
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
@@ -125,3 +129,23 @@ async def main(message: cl.Message):
     else:
        raise ValueError(f"Unsupported Profile. {chat_profile}")
 
+
+@cl.on_audio_chunk
+async def on_audio_chunk(chunk: cl.AudioChunk):
+
+    chat_profile = cl.user_session.get("chat_profile")
+
+    if chat_profile == "CHAT":
+        await profiles.app_profile_chat.on_audio_chunk(chunk)
+    else:
+       raise ValueError(f"Unsupported Profile. {chat_profile}")
+    
+@cl.on_audio_end
+async def on_audio_end(elements: list[ElementBased]):
+
+    chat_profile = cl.user_session.get("chat_profile")
+
+    if chat_profile == "CHAT":
+        await profiles.app_profile_chat.on_audio_end(elements)
+    else:
+       raise ValueError(f"Unsupported Profile. {chat_profile}")

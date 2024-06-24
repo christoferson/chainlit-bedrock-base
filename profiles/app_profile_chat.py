@@ -1,10 +1,14 @@
+from __future__ import annotations
 import os
 import boto3
 import chainlit as cl
+from chainlit.element import ElementBased
 from chainlit.input_widget import Select, Slider
 import traceback
 import logging
 import app_bedrock
+from io import BytesIO
+
 
 AWS_REGION = os.environ["AWS_REGION"]
 AUTH_ADMIN_USR = os.environ["AUTH_ADMIN_USR"]
@@ -71,6 +75,10 @@ async def on_chat_start():
     ).send()
     await on_settings_update(settings)
 
+    await cl.Message(
+        content="Welcome to the Chainlit audio example. Press `P` to talk!"
+    ).send()
+
 #@cl.on_settings_update
 async def on_settings_update(settings):
 
@@ -132,3 +140,40 @@ async def on_message(message: cl.Message):
 
     print("End")
 
+
+async def on_audio_chunk(chunk: cl.AudioChunk):
+    print(f"on_audio_chunk chunk.isStart: {chunk.isStart}")
+    if chunk.isStart:
+        print(f"chunk.mimeType: {chunk.mimeType}")
+
+        buffer = BytesIO()
+        # This is required for whisper to recognize the file type
+        buffer.name = f"input_audio.{chunk.mimeType.split('/')[1]}"
+        # Initialize the session for a new audio stream
+        cl.user_session.set("audio_buffer", buffer)
+        cl.user_session.set("audio_mime_type", chunk.mimeType)
+
+    # Write the chunks to a buffer and transcribe the whole audio at the end
+    cl.user_session.get("audio_buffer").write(chunk.data)
+
+async def on_audio_end(elements: list[ElementBased]):
+
+    print(f"on_audio_end")
+
+    # Get the audio buffer from the session
+    audio_buffer: BytesIO = cl.user_session.get("audio_buffer")
+    audio_buffer.seek(0)  # Move the file pointer to the beginning
+    audio_file = audio_buffer.read()
+    audio_mime_type: str = cl.user_session.get("audio_mime_type")
+
+   # Apply Speech to Text or any other processing
+
+    input_audio_el = cl.Audio(
+        mime=audio_mime_type, content=audio_file, name=audio_buffer.name
+    )
+    await cl.Message(
+        author="You", 
+        type="user_message",
+        content="",
+        elements=[input_audio_el, *elements]
+    ).send()
